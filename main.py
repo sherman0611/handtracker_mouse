@@ -3,13 +3,18 @@ import mediapipe as mp
 import pyautogui
 import time
 
-dpi = 1.5
 cam = cv2.VideoCapture(0)
 hand_detector = mp.solutions.hands.Hands(max_num_hands=1)
 drawing_utils = mp.solutions.drawing_utils
 screen_w, screen_h = pyautogui.size()
 click_y = 0
+
+prev_index_x, prev_index_y = screen_w / 2, screen_h / 2
+
 prev_time = 0
+
+def lerp(a, b, t):
+    return a + (b - a) * t
 
 while True:
     _, frame = cam.read()
@@ -30,9 +35,18 @@ while True:
                 # index finger: cursor control
                 if id == 8:
                     cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
-                    index_x = screen_w / frame_w * x * dpi
-                    index_y = screen_h / frame_h * y * dpi
-                    pyautogui.moveTo(index_x, index_y)
+                    index_x = screen_w / frame_w * x
+                    index_y = screen_h / frame_h * y
+                    
+                    # Interpolate between previous and current cursor position
+                    smooth_index_x = lerp(prev_index_x, index_x, 0.2)
+                    smooth_index_y = lerp(prev_index_y, index_y, 0.2)
+
+                    # Move cursor to interpolated position
+                    pyautogui.moveTo(smooth_index_x, smooth_index_y)
+
+                    # Update previous cursor position
+                    prev_index_x, prev_index_y = smooth_index_x, smooth_index_y
 
                 # if id == 5:
                 #     # click_x = screen_w / frame_w * x

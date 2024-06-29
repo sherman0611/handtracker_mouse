@@ -3,6 +3,9 @@ import mediapipe as mp
 import pyautogui
 import time
 
+lerp_spd = 0.5
+roi_dimension = 0.7
+
 cam = cv2.VideoCapture(0)
 hand_detector = mp.solutions.hands.Hands(max_num_hands=1)
 drawing_utils = mp.solutions.drawing_utils
@@ -13,20 +16,28 @@ prev_index_x, prev_index_y = screen_w / 2, screen_h / 2
 
 prev_time = 0
 
-def lerp(a, b, t):
-    return a + (b - a) * t
+def lerp(a, b):
+    return a + (b - a) * lerp_spd
 
 while True:
     _, frame = cam.read()
     frame = cv2.flip(frame, 1) # flip frame to mirror movements
     frame_h, frame_w, _ = frame.shape
+
+    # ROI dimensions
+    roi_w = int(frame_w * roi_dimension)
+    roi_h = int(frame_h * roi_dimension)
+    # Center ROI dimensions
+    roi_x_start = (frame_w - roi_w) // 2
+    roi_y_start = (frame_h - roi_h) // 2
+
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     hands = hand_detector.process(rgb_frame)
     hands = hands.multi_hand_landmarks
 
     if hands:
         for hand in hands:
-            drawing_utils.draw_landmarks(frame, hand) # display hand keypoints
+            drawing_utils.draw_landmarks(frame, hand)  # display hand keypoints
             landmarks = hand.landmark
             for id, landmark in enumerate(landmarks):
                 x = int(landmark.x * frame_w)
@@ -35,34 +46,69 @@ while True:
                 # index finger: cursor control
                 if id == 8:
                     cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
-                    index_x = screen_w / frame_w * x
-                    index_y = screen_h / frame_h * y
+
+                    # Check if the landmark is within the ROI
+                    if roi_x_start <= x <= roi_x_start + roi_w and roi_y_start <= y <= roi_y_start + roi_h:
+                        # Normalize coordinates within the ROI
+                        norm_x = (x - roi_x_start) / roi_w
+                        norm_y = (y - roi_y_start) / roi_h
+
+                        # Map normalized coordinates to screen size
+                        index_x = norm_x * screen_w
+                        index_y = norm_y * screen_h
+
+                        # Interpolate between previous and current cursor position
+                        smooth_index_x = lerp(prev_index_x, index_x)
+                        smooth_index_y = lerp(prev_index_y, index_y)
+
+                        # Move cursor to interpolated position
+                        pyautogui.moveTo(smooth_index_x, smooth_index_y)
+
+                        # Update previous cursor position
+                        prev_index_x, prev_index_y = smooth_index_x, smooth_index_y
+
+    # Draw ROI rectangle
+    cv2.rectangle(frame, (roi_x_start, roi_y_start), (roi_x_start + roi_w, roi_y_start + roi_h), (0, 255, 0), 2)
+
+    # if hands:
+    #     for hand in hands:
+    #         drawing_utils.draw_landmarks(frame, hand) # display hand keypoints
+    #         landmarks = hand.landmark
+    #         for id, landmark in enumerate(landmarks):
+    #             x = int(landmark.x * frame_w)
+    #             y = int(landmark.y * frame_h)
+
+    #             # index finger: cursor control
+    #             if id == 8:
+    #                 cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
+    #                 index_x = screen_w / frame_w * x
+    #                 index_y = screen_h / frame_h * y
                     
-                    # Interpolate between previous and current cursor position
-                    smooth_index_x = lerp(prev_index_x, index_x, 0.2)
-                    smooth_index_y = lerp(prev_index_y, index_y, 0.2)
+    #                 # Interpolate between previous and current cursor position
+    #                 smooth_index_x = lerp(prev_index_x, index_x, 0.2)
+    #                 smooth_index_y = lerp(prev_index_y, index_y, 0.2)
 
-                    # Move cursor to interpolated position
-                    pyautogui.moveTo(smooth_index_x, smooth_index_y)
+    #                 # Move cursor to interpolated position
+    #                 pyautogui.moveTo(smooth_index_x, smooth_index_y)
 
-                    # Update previous cursor position
-                    prev_index_x, prev_index_y = smooth_index_x, smooth_index_y
+    #                 # Update previous cursor position
+    #                 prev_index_x, prev_index_y = smooth_index_x, smooth_index_y
 
-                # if id == 5:
-                #     # click_x = screen_w / frame_w * x
-                #     click_y = screen_h / frame_h * y
+    #             # if id == 5:
+    #             #     # click_x = screen_w / frame_w * x
+    #             #     click_y = screen_h / frame_h * y
 
-                # # thumb: click
-                # if id == 4:
-                #     cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
-                #     # thumb_x = screen_w / frame_w * x
-                #     thumb_y = screen_h / frame_h * y
+    #             # # thumb: click
+    #             # if id == 4:
+    #             #     cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
+    #             #     # thumb_x = screen_w / frame_w * x
+    #             #     thumb_y = screen_h / frame_h * y
 
-                #     # thumb click trigger
-                #     if abs(click_y - thumb_y) < 20:
-                #         pyautogui.click()
-                #         pyautogui.sleep(1)
-                #         print('click')
+    #             #     # thumb click trigger
+    #             #     if abs(click_y - thumb_y) < 20:
+    #             #         pyautogui.click()
+    #             #         pyautogui.sleep(1)
+    #             #         print('click')
 
     # Calculate and display fps
     curr_time = time.time()

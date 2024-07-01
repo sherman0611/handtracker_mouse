@@ -2,19 +2,21 @@ import cv2
 import mediapipe as mp
 import pyautogui
 import time
+import math
 
 # adjustable variables
 lerp_spd = 0.5
 roi_dimension = 0.5
+click_detect = 0.07
 
+# global variables
 cam = cv2.VideoCapture(0)
 hand_detector = mp.solutions.hands.Hands(max_num_hands=1)
 drawing_utils = mp.solutions.drawing_utils
 screen_w, screen_h = pyautogui.size()
-click_y = 0
-
+index_palm_x, index_palm_y, index_palm_z = 0, 0, 0
+thumb_z = 0
 prev_index_x, prev_index_y = screen_w / 2, screen_h / 2
-
 prev_time = 0
 
 pyautogui.FAILSAFE = False # disabled to prevent program halt
@@ -44,6 +46,26 @@ while True:
             for id, landmark in enumerate(landmarks):
                 x = int(landmark.x * frame_w)
                 y = int(landmark.y * frame_h)
+
+                # index finger palm joint
+                if id == 5:
+                    index_palm_x = landmark.x
+                    index_palm_y = landmark.y
+                    index_palm_z = landmark.z
+
+                # thumb: click
+                if id == 4:
+                    cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
+                    thumb_x = landmark.x
+                    thumb_y = landmark.y
+                    thumb_z = landmark.z
+
+                    dist = math.sqrt((index_palm_x - thumb_x) ** 2 + (index_palm_y - thumb_y) ** 2 + (index_palm_z - thumb_z) ** 2)
+
+                    if dist < click_detect:
+                        pyautogui.click()
+                        pyautogui.sleep(1)
+                        print('click')
 
                 # index finger: cursor control
                 if id == 8:
@@ -86,22 +108,6 @@ while True:
 
     # draw ROI rectangle
     cv2.rectangle(frame, (roi_x_start, roi_y_start), (roi_x_start + roi_w, roi_y_start + roi_h), (0, 255, 0), 2)
-
-    #             # if id == 5:
-    #             #     # click_x = screen_w / frame_w * x
-    #             #     click_y = screen_h / frame_h * y
-
-    #             # # thumb: click
-    #             # if id == 4:
-    #             #     cv2.circle(img=frame, center=(x, y), radius=10, color=(0, 255, 255))
-    #             #     # thumb_x = screen_w / frame_w * x
-    #             #     thumb_y = screen_h / frame_h * y
-
-    #             #     # thumb click trigger
-    #             #     if abs(click_y - thumb_y) < 20:
-    #             #         pyautogui.click()
-    #             #         pyautogui.sleep(1)
-    #             #         print('click')
 
     # Calculate and display fps
     curr_time = time.time()

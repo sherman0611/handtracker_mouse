@@ -5,9 +5,9 @@ import time
 import math
 
 # adjustable variables
-lerp_spd = 0.5
-roi_dimension = 0.5
-click_detect = 0.07
+lerp_spd = 0.5             # speed of cursor movement
+roi_dimension = 0.5        # percentage of ROI to map detection in ROI to entire screen
+click_detect = 0.07        # distance between lankmark to trigger click
 
 # global variables
 cam = cv2.VideoCapture(0)
